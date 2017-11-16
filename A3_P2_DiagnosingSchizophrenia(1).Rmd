@@ -1,0 +1,195 @@
+---
+title: "Assignment 3 - Part 2 - Diagnosing Schizophrenia from Voice"
+author: "Riccardo Fusaroli"
+date: "October 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Assignment 3 - Diagnosing schizophrenia from voice
+
+In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
+In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
+
+```{r}
+setwd("~/R/R - Datascripts/Assignment 3")
+#Load library
+#alternative load package p_load(packages, package... etc)
+library(ggplot2);library(pastecs);library(rmarkdown);library(tidyr);
+library(dplyr);library(QuantPsyc);library(VIF);library(stringr);library(tidytext);library(DHARMa);library(lme4);library(psych);library(MuMIn);library(tidyverse);library(magrittr);library(Metrics);library(simr);library(readtext);library(crqa);library(readr);library(Hmisc);library(lmerTest)
+library(caret);library(gtools)
+#install.packages("e1071", dependencies = TRUE)
+#install.packages("base64enc", dependencies = TRUE)
+#Load dataset from part 1
+schiData <- read.delim('dataExtractSchizo.csv', sep = ",")
+
+```
+
+
+### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
+
+Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
+```{r}
+
+#Can you predict schizophrenia with pitch?
+D ~ Pitch + (..)
+str(df)
+diagnosisModel <- glmer(diagnosis ~ 1 + scale(range) + (1|study), schiData, family = "binomial")
+summary(diagnosisModel)
+
+
+```
+
+Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
+```{r}
+#install.packages("gtools")
+#
+
+#Lav predictions
+schiData$PredictionsPerc <- predict(diagnosisModel)
+#Make log into percent, to resemble probabilties.
+#schiData$PredictionsPerc <- inv.logit(schiData$PredictionsLogit)
+#Confmatrix
+#schiData$PredictionsPerc=predict(diagnosisModel)
+schiData$Predictions[schiData$PredictionsPerc>0]="0"
+schiData$Predictions[schiData$PredictionsPerc<=0]="1"
+
+confu<- confusionMatrix(data = schiData$Predictions, reference = schiData$diagnosis, positive = "1")
+confu
+
+
+#Report area under curve, rocCurve
+library(pROC)
+rocCurve <- roc(response = schiData$diagnosis, predictor = schiData$PredictionsPerc)
+rocCurve
+
+#Plot
+plot(rocCurve, legacy.aex = TRUE)
+
+```
+
+Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+```{r}
+schiData$SUBJ <- as.numeric(factor(schiData$participant))
+
+#Crossvalidate. Turn lmer into glmer, turn root/square mean (rmse) error into confmatrix and rocCurve.
+k <- 10 #the number of folds. 10-fold cross validation. We break up schiData set into 10 folds, call each fold the testing set and build the model on the other 9.
+schi_folds <- createFolds(unique(schiData$participant, k=k))#unique assures that no 'leakage' happens (leakage: that participant is in both training and testing)
+
+str(pitch)
+testvalues1 = NULL
+trainvalues1 = NULL
+
+
+n = 1
+for(i in 1:k){
+  test <- subset(schiData, (SUBJ %in% schi_folds[[i]])) #find all subjects in schiData, look in all foldere for these children in folders [in[in]]
+  train<- subset(schiData, !(SUBJ %in% schi_folds[[i]])) #Do the opposite        
+  #Train model on train data
+  glmModel <- glmer(diagnosis ~ 1 + scale(range) + (1|study), schiData, family = "binomial")
+  summary(glmModel)#Get your new linear model (just fit on the train data)
+
+  #Train model on data
+  #Lav predictions
+  train$PredictionsLogit <- predict(glmModel, train)
+  #Make log into percent, to resemble probabilties.
+  #schiData$PredictionsPerc <- inv.logit(train$PredictionsLogit)
+  #train$PredictionsPerc=predict(newlm1)
+  train$Predictions[train$PredictionsLogit>0]="0"
+  train$Predictions[train$PredictionsLogit<=0]="1"
+   
+  trainpred <- confusionMatrix(data = train$Predictions, reference = train$diagnosis, positive =   "1") #Get the     predicitons for the test set (from the model just fit on the rmse train data)
+  print(trainpred) #show error of model
+trainpred[6]
+ #Få data ud af conmatrix, accuracy, sensitivty, ... osv. 
+#_______________________________________________________________________________________
+ #TEST model on test data
+ test$PredictionsPerc <- predict(glmModel, test)
+ #Make log into percent, to resemble probabilties.
+ #test$PredictionsPerc <- inv.logit(test$PredictionsPerc)
+
+ test$PredictionsPerc=predict(glmModel)
+ test$Predictions[test$PredictionsPerc>0]="0"
+ test$Predictions[test$PredictionsPerc<=0]="1"
+
+ testpred<- confusionMatrix(data = test$Predictions, reference = test$diagnosis, positive = "1")
+ print(testpred)
+
+ 
+
+#Save model error as values 
+testvalues1[n]=(testpred)
+trainvalues1[n]=(trainpred)
+n = n+1
+}
+
+CrossVal <- data.frame(testvalues1)
+
+#Find mean and SE for test and train data
+# mean(testvalues1)
+# sd(testvalues1)/sqrt(length(testvalues1))
+# 
+# mean(trainvalues1)
+# sd(trainvalues1)/sqrt(length(trainvalues1))
+
+#Only report the best model from the test data results. Only report the test data. 
+```
+
+
+
+```{r}
+
+```
+
+
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
+Which single predictor is the best predictor of diagnosis?
+
+```{r}
+#
+```
+
+### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
+
+
+Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
+
+Remember:
+- Cross-validation or AIC are crucial to build the best model!
+- After choosing the model, train it on all the data you have
+- Save the model: save(modelName, file = "BestModelForever.rda")
+- Create a Markdown that can: a) extract the features from new pitch files (basically your previous markdown), b) load your model (e.g. load("BestModelForever.rda")), and c) predict the diagnosis in the new dataframe.
+Send it to Celine and Riccardo by Monday (so they'll have time to run it before class)-
+```{r}
+#combine predictors i've tried in question 3
+```
+
+
+### Question 4: Properly report the results
+
+METHODS SECTION: how did you analyse the data?
+
+RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
+```{r}
+#we used these methods
+#We compared models
+#X model was best, this is the performance of the model
+
+#Look at sensitivuty and specificity. If sensitivity is higher than specificity it's 
+
+#
+```
+
+### Bonus question 5
+
+You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?
+
+### Bonus question 6
+
+Logistic regression is only one of many classification algorithms. Try using others and compare performance. Some examples: Discriminant Function, Random Forest, Support Vector Machine, etc. The package caret provides them.
