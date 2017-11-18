@@ -15,14 +15,11 @@ In the previous part of the assignment you generated a bunch of "features", that
 In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
 
 ```{r}
-setwd("~/R/R - Datascripts/Assignment 3")
-#Load library
-#alternative load package p_load(packages, package... etc)
-library(ggplot2);library(pastecs);library(rmarkdown);library(tidyr);
-library(dplyr);library(QuantPsyc);library(VIF);library(stringr);library(tidytext);library(DHARMa);library(lme4);library(psych);library(MuMIn);library(tidyverse);library(magrittr);library(Metrics);library(simr);library(readtext);library(crqa);library(readr);library(Hmisc);library(lmerTest)
-library(caret);library(gtools)
-#install.packages("e1071", dependencies = TRUE)
-#install.packages("base64enc", dependencies = TRUE)
+setwd("E:/R/R scripts/Diagnosing-Schizophrenia-master")
+#Load library. #alternative load package 
+p_load(ggplot2,pastecs,rmarkdown,tidyr,dplyr,QuantPsyc, VIF,stringr,tidytext,DHARMa,lme4,psych,MuMIn,tidyverse,magrittr,Metrics,simr,readtext,crqa,readr,Hmisc,lmerTest,caret,gtools) 
+
+#install.packages("pacman", dependencies = TRUE)
 #Load dataset from part 1
 schiData <- read.delim('dataExtractSchizo.csv', sep = ",")
 
@@ -70,7 +67,7 @@ rocCurve
 #Rocplot <- plot(rocCurve, legacy.aex = TRUE)
 
 #Save plot
-RocplotSave <- ggsave("Rocplot.pdf", plot(rocCurve, legacy.aex = TRUE), device = "pdf", path = "~/R/R - Datascripts/Assignment 3/RocCurve plots", limitsize = FALSE)
+RocplotSave <- ggsave("Rocplot.pdf", plot(rocCurve, legacy.aex = TRUE), device = "pdf", path = "E:/R/R scripts/Diagnosing-Schizophrenia-master/RocCurve plots", limitsize = FALSE)
 
 ```
 
@@ -87,9 +84,6 @@ schi_folds <- createFolds(unique(schiData$participant, k=k))#unique assures that
 
 #(accuracy, sensitivity, specificity, PPV, NPV, ROC curve)
 
-#testvalues1 = NULL
-#trainvalues1 = NULL
-
 #Train variables
 trainSens = NULL
 trainSpec = NULL
@@ -98,7 +92,7 @@ trainPPV = NULL
 trainNPV = NULL
 trainKappa = NULL
 
-trainRoc = NULL
+trainAUC = NULL
 
 #Test variables
 testSens = NULL
@@ -108,7 +102,7 @@ testPPV = NULL
 testNPV = NULL
 testKappa = NULL
 
-testRoc = NULL
+testAUC = NULL
 
 n = 1
 for(i in 1:k){
@@ -143,15 +137,15 @@ for(i in 1:k){
   trainRocCurve <- roc(response = train$diagnosis, predictor = train$PredictionsPerc)
   trainRocCurve
   
-  trainRoc[n] = trainRocCurve$auc
+  trainAUC[n] = trainRocCurve$auc
 
-  TrainCross <- data.frame(trainSens, trainSpec, trainPPV, trainNPV, trainACC, trainKappa,    trainRoc)  
+  TrainCross <- data.frame(trainSens, trainSpec, trainPPV, trainNPV, trainACC, trainKappa,    trainAUC)  
   
   #Plot
 
   #RocplotLoop
 #Save plot
-  RocplotSave <- ggsave("Train_RocplotLoop.pdf", plot(trainRocCurve, legacy.aex = TRUE), device = "pdf",   path = "~/R/R - Datascripts/Assignment 3/RocCurve plots", limitsize = FALSE)
+  RocplotSave <- ggsave("Train_RocplotLoop.pdf", plot(trainRocCurve, legacy.aex = TRUE), device = "pdf",   path = "E:/R/R scripts/Diagnosing-Schizophrenia-master/RocCurve plots", limitsize = FALSE)
 
 #_______________________________________________________________________________________
  #TEST model on test data
@@ -180,24 +174,24 @@ for(i in 1:k){
  testRocCurve <- roc(response = test$diagnosis, predictor = test$PredictionsPerc)
  testRocCurve
   
- testRoc[n] = testRocCurve$auc
+ testAUC[n] = testRocCurve$auc
  
  
- TestCross <- data.frame(testSens, testSpec, testPPV, testNPV, testACC, testKappa, testRoc)
+ TestCross <- data.frame(testSens, testSpec, testPPV, testNPV, testACC, testKappa, testAUC)
  #RocplotLoop
 #Save plot
-  RocplotSave <- ggsave("Test_RocplotLoop.pdf", plot(testRocCurve, legacy.aex = TRUE), device = "pdf",   path = "~/R/R - Datascripts/Assignment 3/RocCurve plots", limitsize = FALSE)
+  RocplotSave <- ggsave("Test_RocplotLoop.pdf", plot(testRocCurve, legacy.aex = TRUE), device = "pdf",   path = "E:/R/R scripts/Diagnosing-Schizophrenia-master/RocCurve plots", limitsize = FALSE)
 
   }
 
 CrossVal <- data.frame(TrainCross, TestCross)
 
 #Tidy up data
-CrossVal2 <- dplyr::select(CrossVal, trainSens:trainRoc) %>%
+CrossVal2 <- dplyr::select(CrossVal, trainSens:trainAUC) %>%
   gather("Train", "Train Values")
 
 #Tidy up data
-CrossVal3 <- dplyr::select(CrossVal, testSens:testRoc) %>%
+CrossVal3 <- dplyr::select(CrossVal, testSens:testAUC) %>%
   gather("Test", "Test Values")
 
 #Merge 
@@ -210,20 +204,36 @@ CrossValM <- bind_cols(CrossVal2, CrossVal3)
 ### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
 Which single predictor is the best predictor of diagnosis?
 
-```{r}
-
+```{r, echo=TRUE}
+plot(cars)
 #Make list of predictors to run through model in loop
-modelName <- lm(diagnosis~iv, data=schiData) 
+dv <- names(schiData)[8:15]
+dv
 
+#My model build
 glmModel <- glmer(diagnosis ~ 1 + dv + (1|study), schiData, family = "binomial")
-  
 
-dvlist <- names(schiData)[8:15]
-dvlist
-?base
-model1 <- lapply(dvlist, function(x) {
-    glmer(substitute(i~dv+ (1|study), list(i = as.name(x))), data = schiData)})
-  
+#Function to do glmer on every predictor. 
+# model1 <- lapply(dv, function(x) {
+#     glmer(substitute(diagnosis~dv+ (1|study), list(dv = as.name(x))), data = schiData)})
+# model1 
+
+#Function does glmer and confusion matrix and calculates AUC on each predictor.
+model2 <- lapply(dv, function(x) {
+  glmModel <- glmer(substitute(diagnosis~dv+ (1|study), list(dv = as.name(x))), data = schiData, family = "binomial")
+  print(glmModel)
+  schiData$PredictionsPerc1 <- predict(glmModel, schiData)
+  schiData$Predictions1[schiData$PredictionsPerc1>0]="0"
+  schiData$Predictions1[schiData$PredictionsPerc1<=0]="1"
+
+  schiDatapredModel<- confusionMatrix(data = schiData$Predictions1, reference = schiData$diagnosis, positive = "1")
+
+  ModelRocCurve <- roc(response = schiData$diagnosis, predictor = schiData$PredictionsPerc1)
+  print(ModelRocCurve)
+})
+
+
+model2
 ```
 
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
