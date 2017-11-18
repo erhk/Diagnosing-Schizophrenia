@@ -65,9 +65,12 @@ confu
 library(pROC)
 rocCurve <- roc(response = schiData$diagnosis, predictor = schiData$PredictionsPerc)
 rocCurve
-
+#print(rocCurve$auc)
 #Plot
-plot(rocCurve, legacy.aex = TRUE)
+#Rocplot <- plot(rocCurve, legacy.aex = TRUE)
+
+#Save plot
+RocplotSave <- ggsave("Rocplot.pdf", plot(rocCurve, legacy.aex = TRUE), device = "pdf", path = "~/R/R - Datascripts/Assignment 3/RocCurve plots", limitsize = FALSE)
 
 ```
 
@@ -82,18 +85,38 @@ schiData$SUBJ <- as.numeric(factor(schiData$participant))
 k <- 10 #the number of folds. 10-fold cross validation. We break up schiData set into 10 folds, call each fold the testing set and build the model on the other 9.
 schi_folds <- createFolds(unique(schiData$participant, k=k))#unique assures that no 'leakage' happens (leakage: that participant is in both training and testing)
 
-str(pitch)
-testvalues1 = NULL
-trainvalues1 = NULL
+#(accuracy, sensitivity, specificity, PPV, NPV, ROC curve)
 
+#testvalues1 = NULL
+#trainvalues1 = NULL
+
+#Train variables
+trainSens = NULL
+trainSpec = NULL
+trainACC = NULL
+trainPPV = NULL
+trainNPV = NULL
+trainKappa = NULL
+
+trainRoc = NULL
+
+#Test variables
+testSens = NULL
+testSpec = NULL
+testACC = NULL
+testPPV = NULL
+testNPV = NULL
+testKappa = NULL
+
+testRoc = NULL
 
 n = 1
 for(i in 1:k){
   test <- subset(schiData, (SUBJ %in% schi_folds[[i]])) #find all subjects in schiData, look in all foldere for these children in folders [in[in]]
   train<- subset(schiData, !(SUBJ %in% schi_folds[[i]])) #Do the opposite        
-  #Train model on train data
+  #Put in model
   glmModel <- glmer(diagnosis ~ 1 + scale(range) + (1|study), schiData, family = "binomial")
-  summary(glmModel)#Get your new linear model (just fit on the train data)
+  summary(glmModel)#Get your new model (just fit on the train data)
 
   #Train model on data
   #Lav predictions
@@ -103,18 +126,41 @@ for(i in 1:k){
   #train$PredictionsPerc=predict(newlm1)
   train$Predictions[train$PredictionsLogit>0]="0"
   train$Predictions[train$PredictionsLogit<=0]="1"
-   
-  trainpred <- confusionMatrix(data = train$Predictions, reference = train$diagnosis, positive =   "1") #Get the     predicitons for the test set (from the model just fit on the rmse train data)
-  print(trainpred) #show error of model
-trainpred[6]
- #Få data ud af conmatrix, accuracy, sensitivty, ... osv. 
+  
+  #Get your new model (just fit on the train data) 
+  trainpred <- confusionMatrix(data = train$Predictions, reference = train$diagnosis, positive =    "1") 
+  print(trainpred)
+  #Get data, sensitivity, specificity, accuracy , Positive prediciton value, negative prediction value, kappa
+  trainSens[n] = trainpred$byClass[1]
+  trainSpec[n] = trainpred$byClass[2]
+  trainPPV[n] = trainpred$byClass[3]
+  trainNPV[n] = trainpred$byClass[4]
+  trainACC[n] = trainpred$overall[1]
+  trainKappa[n] = trainpred$overall[2]
+  
+  #Get area under curve from rocCurve 
+  #print(rocCurve$auc)
+  trainRocCurve <- roc(response = train$diagnosis, predictor = train$PredictionsPerc)
+  trainRocCurve
+  
+  trainRoc[n] = trainRocCurve$auc
+
+  TrainCross <- data.frame(trainSens, trainSpec, trainPPV, trainNPV, trainACC, trainKappa,    trainRoc)  
+  
+  #Plot
+
+  #RocplotLoop
+#Save plot
+  RocplotSave <- ggsave("Train_RocplotLoop.pdf", plot(trainRocCurve, legacy.aex = TRUE), device = "pdf",   path = "~/R/R - Datascripts/Assignment 3/RocCurve plots", limitsize = FALSE)
+
 #_______________________________________________________________________________________
  #TEST model on test data
+  
  test$PredictionsPerc <- predict(glmModel, test)
  #Make log into percent, to resemble probabilties.
  #test$PredictionsPerc <- inv.logit(test$PredictionsPerc)
 
- test$PredictionsPerc=predict(glmModel)
+ #test$PredictionsPerc=predict(glmModel)
  test$Predictions[test$PredictionsPerc>0]="0"
  test$Predictions[test$PredictionsPerc<=0]="1"
 
@@ -122,29 +168,42 @@ trainpred[6]
  print(testpred)
 
  
+ testSens[n] = testpred$byClass[1]
+ testSpec[n] = testpred$byClass[2]
+ testPPV[n] = testpred$byClass[3]
+ testNPV[n] = testpred$byClass[4]
+ testACC[n] = testpred$overall[1]
+ testKappa[n] = testpred$overall[2]
+ 
+ #Get area under curve from rocCurve 
+  #print(rocCurve$auc)
+ testRocCurve <- roc(response = test$diagnosis, predictor = test$PredictionsPerc)
+ testRocCurve
+  
+ testRoc[n] = testRocCurve$auc
+ 
+ 
+ TestCross <- data.frame(testSens, testSpec, testPPV, testNPV, testACC, testKappa, testRoc)
+ #RocplotLoop
+#Save plot
+  RocplotSave <- ggsave("Test_RocplotLoop.pdf", plot(testRocCurve, legacy.aex = TRUE), device = "pdf",   path = "~/R/R - Datascripts/Assignment 3/RocCurve plots", limitsize = FALSE)
 
-#Save model error as values 
-testvalues1[n]=(testpred)
-trainvalues1[n]=(trainpred)
-n = n+1
-}
+  }
 
-CrossVal <- data.frame(testvalues1)
+CrossVal <- data.frame(TrainCross, TestCross)
 
-#Find mean and SE for test and train data
-# mean(testvalues1)
-# sd(testvalues1)/sqrt(length(testvalues1))
-# 
-# mean(trainvalues1)
-# sd(trainvalues1)/sqrt(length(trainvalues1))
+#Tidy up data
+CrossVal2 <- dplyr::select(CrossVal, trainSens:trainRoc) %>%
+  gather("Train", "Train Values")
+
+#Tidy up data
+CrossVal3 <- dplyr::select(CrossVal, testSens:testRoc) %>%
+  gather("Test", "Test Values")
+
+#Merge 
+CrossValM <- bind_cols(CrossVal2, CrossVal3)
 
 #Only report the best model from the test data results. Only report the test data. 
-```
-
-
-
-```{r}
-
 ```
 
 
@@ -152,7 +211,19 @@ CrossVal <- data.frame(testvalues1)
 Which single predictor is the best predictor of diagnosis?
 
 ```{r}
-#
+
+#Make list of predictors to run through model in loop
+modelName <- lm(diagnosis~iv, data=schiData) 
+
+glmModel <- glmer(diagnosis ~ 1 + dv + (1|study), schiData, family = "binomial")
+  
+
+dvlist <- names(schiData)[8:15]
+dvlist
+?base
+model1 <- lapply(dvlist, function(x) {
+    glmer(substitute(i~dv+ (1|study), list(i = as.name(x))), data = schiData)})
+  
 ```
 
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
