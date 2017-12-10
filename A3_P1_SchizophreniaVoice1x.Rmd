@@ -70,32 +70,9 @@ SimplesMat
 #Frequency median = 125,59, SE = 2,47, Coef.var = 0.224.
 
 ```
-#______________________________Own random notes. Ignore__________________________________________
-#Extract "complex descriptors".
-
-#Delay parameter threshold(T); can be estimated using the mutual average information function.
-#T is the basis of unfolding the one-dimensional time-series into a multidimensional phase-space.
-
-#library(tseriesChaos)
-# run Average Mutual Information
-#mutual(Pitch1$f0, lag.max = 50)
-#I chose the lowest value in my AMI plot to make the most conservative analysis. T = 22.
-
-# Embedding parameter D; can be estimated using the false-nearest neighbor function.
-# If D = 1, we do not need to embed.
-# If D > 1, we want to unfold the one-dimensional time-series into as many dimensions so that we exhaust all information about higher-dimensional dynamics contained in the time-series, but not more.
-
-# m: embedding dimension D
-# d: delay T
-# t: an additional parameter, the Theiler-window, that can help to increase the reliability of the false-nearest neighbor analysis and recurrence statistics by removing unwanted short-term temporal correlations.
-
-
-# run false-nearestneighbor analysis
-#fnn = false.nearest(Pitch1$f0, m=5, d=22, t=0)
-#plot(fnn)
 
 ```{r}
-#__________________________________CRQA _________________________________________________________
+#__________________________________CRQA__________________________________________________
 mlpar = list(lgM =  35, radiusspan = 400, radiussample = 10, normalize = 0, rescale = 1, mindiagline = 2, 
              minvertline = 2, tw = 0, whiteline = FALSE, recpt = FALSE, fnnpercent = 10, typeami = "maxlag")
 optpar <- optimizeParam(Pitch1,Pitch1,mlpar); optpar
@@ -157,7 +134,7 @@ RP
 
 
 ```{r}
-#______________________________________ CLASS NOTES ______________________________________________
+#______________________________________ NOTES___________________________________________
 
 #List all files
 
@@ -339,7 +316,7 @@ df = data.frame(participant, diagnosis, study, trial, embed, delay, radius)
 
 
 
-#Write to datafile to avoid looping through all of them again
+#Write to datafile 
 write.csv(df, file = "dataExtractSchizo.csv", row.names = F)
 
 
