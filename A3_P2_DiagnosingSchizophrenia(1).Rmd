@@ -15,12 +15,11 @@ In the previous part of the assignment you generated a bunch of "features", that
 In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
 
 ```{r}
-setwd("E:/R/R scripts/Diagnosing-Schizophrenia-master")
+setwd("C:/Users/emily/OneDrive/Dokumenter/R/R - Datascripts/Assignment 3")
 #Load library. #alternative load package 
-p_load(ggplot2,pastecs,rmarkdown,tidyr,dplyr,QuantPsyc, VIF,stringr,tidytext,DHARMa,lme4,psych,MuMIn,tidyverse,magrittr,Metrics,simr,readtext,crqa,readr,Hmisc,lmerTest,caret,gtools,pROC)library(pacman)
 library(ggplot2);library(pastecs);library(rmarkdown);library(tidyr);
 library(dplyr);library(QuantPsyc);library(VIF);library(stringr);library(tidytext);library(DHARMa)
-library(lme4);library(lmerTest);library(psych);library(MuMIn);library(tidyverse);library(magrittr);library(Metrics);library(caret);library(simr);library(readtext);library(crqa);library(readr);library(gtools);library(lattice);library(nlme)
+library(lme4);library(lmerTest);library(psych);library(MuMIn);library(tidyverse);library(magrittr);library(Metrics);library(caret);library(simr);library(readtext);library(crqa);library(readr);library(gtools);library(lattice);library(nlme);library(pROC)
 #install.packages("pacman", dependencies = TRUE)
 #Load dataset from part 1
 schiData <- read.delim('dataExtractSchizo.csv', sep = ",", header = TRUE)
@@ -31,24 +30,19 @@ schiData <- read.delim('dataExtractSchizo.csv', sep = ",", header = TRUE)
 ### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
 
 Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
-```{r}
+Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
+```{r} 
 
-#Can you predict schizophrenia with pitch?
+#Can you predict schizophrenia with pitch. Build basic model.
 D ~ Pitch + (..)
 str(df)
 diagnosisModel <- glmer(diagnosis ~ 1 + scale(range) + (1|study), schiData, family = "binomial")
-summary(diagnosisModel)
 
 
-```
-
-Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
-```{r}
 #install.packages("gtools")
-#
-
 #Lav predictions
 schiData$PredictionsPerc <- predict(diagnosisModel)
+#Riccardo told me these out-commented lines weren't necessary. I will chose to trust him on this!!
 #Make log into percent, to resemble probabilties.
 #schiData$PredictionsPerc <- inv.logit(schiData$PredictionsLogit)
 #Confmatrix
@@ -79,6 +73,7 @@ N.B. the predict() function generates log odds (the full scale between minus and
 N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
 N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
 ```{r}
+
 schiData$SUBJ <- as.numeric(factor(schiData$participant))
 
 #Crossvalidate. Turn lmer into glmer, turn root/square mean (rmse) error into confmatrix and rocCurve.
@@ -137,19 +132,14 @@ for(i in 1:k){
   
   #Get area under curve from rocCurve 
   #print(rocCurve$auc)
-  trainRocCurve <- roc(response = train$diagnosis, predictor = train$PredictionsPerc)
+  trainRocCurve <- roc(response = train$diagnosis, predictor = train$PredictionsLogit)
   trainRocCurve
   
   trainAUC[n] = trainRocCurve$auc
 
   TrainCross <- data.frame(trainSens, trainSpec, trainPPV, trainNPV, trainACC, trainKappa,    trainAUC)  
   
-  #Plot
-
-  #RocplotLoop
-#Save plot
-  RocplotSave <- ggsave("Train_RocplotLoop.pdf", plot(trainRocCurve, legacy.aex = TRUE), device = "pdf",   path = "E:/R/R scripts/Diagnosing-Schizophrenia-master/RocCurve plots", limitsize = FALSE)
-
+  
 #_______________________________________________________________________________________
  #TEST model on test data
   
@@ -181,9 +171,6 @@ for(i in 1:k){
  
  
  TestCross <- data.frame(testSens, testSpec, testPPV, testNPV, testACC, testKappa, testAUC)
- #RocplotLoop
-#Save plot
-  RocplotSave <- ggsave("Test_RocplotLoop.pdf", plot(testRocCurve, legacy.aex = TRUE), device = "pdf",   path = "E:/R/R scripts/Diagnosing-Schizophrenia-master/RocCurve plots", limitsize = FALSE)
 
 }
 
@@ -202,117 +189,18 @@ CrossValM <- bind_cols(CrossVal2, CrossVal3)
 
 #Only report the best model from the test data results. Only report the test data. 
 ```
-
+Test data for range model AUC = 0.482. Disgustingly bad.
 
 ### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
 Which single predictor is the best predictor of diagnosis?
 
-
-##First model thingy ___ WRONG - IGNORE - DOESN'T WORK ___ Just keeping it for note
-```{r}
-#Make list of predictors to run through model in loop
-
-schiData$SUBJ <- as.numeric(factor(schiData$participant))
-#number of folds
-k = 10
-schi_folds <- createFolds(unique(schiData$participant, k=k, list = T, ReturnTrain = T)) 
-schiData$SUBJ <- as.numeric(factor(schiData$participant))
-dv <- names(schiData)[8:15]
-
-#accousticFeatures = colnames(schiData)[8:15]
-
-#number of folds
-k = 10
-#create folds
-#folds = createFolds(unique(schiData$SUBJ), k = k, list = T, returnTrain = F)
-#library(stringr)
-n = 1
-
-#Begin the first part of the loop
-#for (feature in dv){
-  #print(feature)
-  #Create the variables and make them empty
-  # trainAccuracy = NULL
-  # trainSensitivity = NULL
-  # trainSpecificity = NULL
-  # trainPPV = NULL
-  # trainNPV = NULL
-  # trainAUC = NULL
-  # 
-  # testAccuracy = NULL
-  # testSensitivity = NULL
-  # testSpecificity = NULL
-  # testPPV = NULL
-  # testNPV = NULL
-  # testAUC = NULL
-  
-  #Add N for counting
-  # N = 1
-  
-    #Make the string for the string for the model
-     #stringModel = paste("diagnosis ~ scale(", dv, ") + (1|study)", sep = "")
-
-#}
-#My model build
-#glmModel <- glmer(diagnosis ~ 1 + scale(dv) + (1|study), schiData, family = "binomial")
-#Function does glmer and confusion matrix and calculates AUC on each predictor.
-#for(schi_folds in 1:k) { 
-models <- lapply(dv, function(x) { 
-    #dv <- names(schiData)[8:15]
-    test2 <- subset(schiData, (SUBJ  %in% schi_folds[[i]])) #find all subjects in schiData, look in all folders.
-    train2<- subset(schiData, !(SUBJ  %in% schi_folds[[i]])) #Do the opposite    
-  
-#TRAIN model on train data_______________________________________________________________
-    #model won't work.
-    glmModel2 <- glmer(substitute(i ~ 1 + scale(dv) + (1|study), list(i = as.name(x))), train2, family = "binomial")
-    #stringModel = paste("diagnosis ~ scale(", dv, ") + (1|study)", sep = "")
-
-    #glmModel2 = glmer(stringModel, train2, family = binomial)
-    print(glmModel2)
-    #train2$PredictionsPerc1 <- predict(glmModel2, train2)
-    train2$PredictionsPerc1 <- predict(glmModel2, train2)
-    train2$Predictions1[train2$PredictionsPerc1>0]="0"
-    train2$Predictions1[train2$PredictionsPerc1<=0]="1"
-    
-    train2DatapredModel <- (confusionMatrix(data = train2$Predictions1, reference = train2$diagnosis, positive = "1"))
-    print(train2DatapredModel)
-  
-    
-    Train2ModelRocCurve <- roc(response = train2$diagnosis, predictor = train2$PredictionsPerc1)
-    print(Model2RocCurve)
-   
-#Test model on test data_______________________________________________________________
-
-  
-    test2$PredictionsPerc1 <- predict(glmModel2, test2)
-  
-    test2$Predictions1[test2$PredictionsPerc1>0]="0"
-    test2$Predictions1[test2$PredictionsPerc1<=0]="1"
-  
-    test2DatapredModel <- (confusionMatrix(data = test2$Predictions1, reference = test2$diagnosis, positive = "1"))
-    print(test2DatapredModel)
-
-  
-    Test2ModelRocCurve <- roc(response = test2$diagnosis, predictor = test2$PredictionsPerc1)
-    print(Test2ModelRocCurve)
-    
-})
- 
-models
-
-```
-
-
-
-
-
-#Second Loop thingy ___ Because my function loop sucks and is wrong ___________
+#Loop thingy 
 
 ```{r}
-#Read data again (we do not want the added predictions from before)
-#schiData$SUBJ <- as.numeric(factor(schiData$participant))
 
-#Get colnames and make a list of relevant colNames that we need to go through
+schiData$SUBJ <- as.numeric(factor(schiData$participant))
+
+#Get colnames and make a list of relevant colNames
 accousticFeatures = colnames(schiData)[8:15]
 
 #number of folds
@@ -322,7 +210,6 @@ folds = createFolds(unique(schiData$SUBJ), k = k, list = T, returnTrain = F)
 library(stringr)
 n = 1
 
-#Begin the first part of the loop
 for (feature in accousticFeatures){
   print(feature)
   #Create the variables and make them empty
@@ -361,10 +248,10 @@ for (feature in accousticFeatures){
     
     #calculate probabilities
     
-    #If the percentage is above 0.5 we predict schizophrenia
-    trainData$predictions[trainData$Perc > 0.5] = "1"
-    #If the percentage is under 0.5 we predict control
-    trainData$predictions[trainData$Perc < 0.5] = "0"
+   #Made tgem 0 instead of 0.5. Should make it probabilities. I still trust Riccardo!
+    trainData$predictions[trainData$Perc > 0] = "1"
+   
+    trainData$predictions[trainData$Perc < 0] = "0"
     #Confusion matrix
     confMat = confusionMatrix(data = trainData$predictions, reference = trainData$diagnosis, positive = "1")
   
@@ -390,10 +277,9 @@ for (feature in accousticFeatures){
     
     #calculate probabilities
 
-    #If the percentage is above 0.5 we predict schizophrenia
-    testData$predictions[testData$Perc > 0.5] = "1"
-    #If the percentage is under 0.5 we predict control
-    testData$predictions[testData$Perc < 0.5] = "0"
+    testData$predictions[testData$Perc > 0] = "1"
+   
+    testData$predictions[testData$Perc < 0] = "0"
     #Confusion matrix
     confMatTest = confusionMatrix(data = testData$predictions, reference = testData$diagnosis, positive = "1")
   
@@ -407,7 +293,7 @@ for (feature in accousticFeatures){
     testData$predictions = as.numeric(testData$predictions)
   
     #Calculate area under the curve
-    rocANStest = roc(response = trainData$diagnosis, predictor = trainData$predictions)
+    rocANStest = roc(response = testData$diagnosis, predictor = testData$predictions)
     
     testAUC[N] = rocANStest$auc
     
@@ -441,7 +327,7 @@ for (feature in accousticFeatures){
     colnames(dfResultsAll) = colnames
     
   }
-print(testPPV)
+
 }
 
 
@@ -450,10 +336,9 @@ row.names(dfResultsAll) = c("accuracy", "sensitivity", "specificity", "PPV", "NP
 
 
 
-
 ``` 
-Train rqa_RR auc = 0.54345793 
-Test rqa_RR auc = 0.53716645
+Train rqa_RR auc = 0.524
+Test rqa_RR auc = 0.518
 
 
 ### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
@@ -470,13 +355,16 @@ Send it to Celine and Riccardo by Monday (so they'll have time to run it before 
 ```{r}
 
 #Make models
-stringMultiple = c("diagnosis ~ 1 + scale(rqa_RR) + scale(rqa_NRLINE) + (1|study)",
-"diagnosis ~ 1 + scale(rqa_RR) + scale(rqa_NRLINE) + scale(rqa_L) + (1|study)",
-"diagnosis ~ 1 + scale(rqa_RR) + scale(rqa_NRLINE) + scale(rqa_L) + (1|study)",
-"diagnosis ~ 1 + scale(rqa_RR) * scale(rqa_DET) + rqa_L + (1|study)")
+stringMultipleModels = c("diagnosis ~ 1 + scale(range) + scale(rqa_RR) + (1|study)",
+"diagnosis ~ 1 + scale(range) + scale(rqa_RR) + scale(rqa_ENTR) + (1|study)",
+"diagnosis ~ 1 + scale(range) * scale(rqa_RR) + scale(rqa_ENTR) + (1|study)",
+"diagnosis ~ 1 + scale(range) * scale(rqa_RR) * scale(rqa_ENTR) + (1|study)",
+"diagnosis ~ 1 + scale(range) * scale(rqa_RR) + (1|study)",
+"diagnosis ~ 1 + scale(rqa_RR) + scale(rqa_ENTR) + (1|study)",
+"diagnosis ~ 1 + scale(rqa_RR) * scale(rqa_ENTR) + (1|study)")
 
 
-modelName <- c("Q3_model1", "Q3_model2", "Q3_model3", "Q3_model4")
+modelName <- c("Q3_model1", "Q3_model2", "Q3_model3", "Q3_model4", "Q3_model5", "Q3_model6", "Q3_model7")
 
 
 #Crossvalidation _______________________________________________________________
@@ -489,10 +377,10 @@ folds = createFolds(unique(schiData$SUBJ), k = k, list = T, returnTrain = F)
 library(stringr)
 n = 1
 
-#Begin the first part of the loop
-for (indModel in stringMultiple){
+#First loop, identifying models
+for (indModel in stringMultipleModels){
   print(indModel)
-  #Create the variables and make them empty
+  #Create empty variables
   trainAccuracy = NULL
   trainSensitivity = NULL
   trainSpecificity = NULL
@@ -511,7 +399,7 @@ for (indModel in stringMultiple){
   N = 1
   
   
-  #Make sub-loop for CV
+  #crossvalidate loop
   
   for (fold in folds){
     testData = subset(schiData, SUBJ %in% fold)
@@ -524,11 +412,11 @@ for (indModel in stringMultiple){
     #Predict
     trainData$Perc = predict(model, trainData)
     
-    #calculate probabilities
-    #If the percentage is above 0.5 we predict schizophrenia
-    trainData$predictions[trainData$Perc > 0.5] = "1"
-    #If the percentage is under 0.5 we predict control
-    trainData$predictions[trainData$Perc < 0.5] = "0"
+    #Again we don't do an invertlogit, because Riccardo told me it wasn't necessary! I still trust you!So set them as 0
+  
+    trainData$predictions[trainData$Perc > 0] = "1"
+ 
+    trainData$predictions[trainData$Perc < 0] = "0"
     #Confusion matrix
     confMat = confusionMatrix(data = trainData$predictions, reference = trainData$diagnosis, positive = "1")
   

@@ -1,5 +1,5 @@
 ---
-title: "Assignment2_Part1_VoiceInSchizophrenia"
+title: "Assignment3_Part1_VoiceInSchizophrenia"
 author: "Emily Holm Kelly"
 date: "July 17, 2016"
 output: html_document
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Assignment 2 - Part 1 - Assessing voice in schizophrenia
+## Assignment 3 - Part 1 - Assessing voice in schizophrenia
 
 Schizophrenia has been associated with "inappropriate" voice, sometimes monotone, sometimes croaky. A few studies indicate that pitch might be an index of schizophrenia. However, an ongoing meta-analysis of the literature (which you will have a go at in the last assignment) indicates that pitch mean and standard deviation are only weak indicators of diagnosis. Can we do better with our new fancy complex skills?
 
@@ -29,17 +29,15 @@ library(dplyr);library(QuantPsyc);library(VIF);library(stringr);library(tidytext
 library(lme4);library(lmerTest);library(psych);library(MuMIn);library(tidyverse);library(magrittr);library(Metrics);library(caret);library(simr);library(readtext);library(crqa);library(readr)
 #Load dataset from part 1
 
-Artic = read.delim('Articulation.txt', sep = ',')
 DemoData = read.delim('DemoData.txt', sep = '.')
 Pitch1 = read.table("~/R/R - Datascripts/Assignment 3/Pitch/Study1D0S101T1_f0.txt", header=T)
 
 
 #Load data
-files = list.files(path = "~/R/R - Datascripts/Assignment 3/Pitch",pattern="*.txt")
-print(files)
-#Artic data. 0 means control, 1 = Schizo. Number after 0 and 1 identifies two similiarly matched participants. They have similiar traits, so schizo is matched with a control.
+files = list.files(path = "~/R/R - Datascripts/Assignment 3/Pitch",pattern="*.txt")#0 means control, 1 = Schizo. Number after 0 and 1 identifies two similiarly matched participants. They have similiar traits, so schizo is matched with a control.
 #T 1, 2, 3 = video 1 they have to describe, video 2 etc
-#
+
+
 
 ```
 
@@ -49,22 +47,29 @@ print(files)
 - Extract "complex" descriptors: recurrence quantification analysis
 
 ```{r}
-#Extract "standard" descriptors
-range(Pitch1$f0)
-mean(Pitch1$f0)
-sd(Pitch1$f0)
 
+#Extract some standard(ish) stats
+round(stat.desc(Pitch1), 3)
+P_Mean = 139.920
+P_SD = 31.385
+P_Range = 142.010
+P_median = 125.590
+P_Coef.var = 0.224
 
-range(Pitch1$time)
-mean(Pitch1$time)
-sd(Pitch1$time)
-#Frequency M = 139,92, SD = 31,38, 142,01.
+#IQR (The interquartile range of an observation variable is the difference of its upper and lower quartiles. It is a measure of how far apart the middle portion of data spreads in value.) 
+p_IQR = IQR(Pitch1$f0)
+#42.137
 
-#Extract "less standard"
-stat.desc(Pitch1)
-#Frequency median = 125,59, SE = 2,47, Coef.var = 0,224.
+SimplesNot <- cbind(P_Mean, P_SD, P_Range, P_median, P_Coef.var, p_IQR)
+SimplesMat <- matrix(SimplesNot, nrow = 6, ncol = 1)
+SimplesMat
+row.names(SimplesMat) <- c("Mean", "SD", "Range", "Median", "Coef.var", "IQR")
+colnames(SimplesMat) <- c("Standard Describtors")
+SimplesMat
 
+#Frequency median = 125,59, SE = 2,47, Coef.var = 0.224.
 
+```
 #______________________________Own random notes. Ignore__________________________________________
 #Extract "complex descriptors".
 
@@ -89,6 +94,7 @@ stat.desc(Pitch1)
 #fnn = false.nearest(Pitch1$f0, m=5, d=22, t=0)
 #plot(fnn)
 
+```{r}
 #__________________________________CRQA _________________________________________________________
 mlpar = list(lgM =  35, radiusspan = 400, radiussample = 10, normalize = 0, rescale = 1, mindiagline = 2, 
              minvertline = 2, tw = 0, whiteline = FALSE, recpt = FALSE, fnnpercent = 10, typeami = "maxlag")
@@ -96,14 +102,47 @@ optpar <- optimizeParam(Pitch1,Pitch1,mlpar); optpar
 
 #I find the parameters for my crqa model:
 
-Results <- try(crqa(Pitch1, Pitch1, embed = 3, delay = 30, radius = 2, normalize = 0, rescale = 2, mindiagline = 2, minvertline = 2))
+Results <- try(crqa(Pitch1, Pitch1, embed = 3, delay = 30, radius = 0.5748302, normalize = 0, rescale = 2, mindiagline = 2, minvertline = 2))
 Results
+
+#$RR
+#[1] 16.69536
+
+#$DET
+#[1] 99.26091
+
+#$NRLINE
+#[1] 401
+
+#$maxL
+#[1] 264
+
+#$L
+#[1] 28.80299
+
+#$ENTR
+#[1] 3.899081
+
+#$rENTR
+#[1] 0.8448493
+
+#$LAM
+#[1] 99.75077
+
+#$TT
+#[1] 41.01413
+
+
+Simples <- matrix(Results,nrow = 7,ncol = 1)
+row.names(Simples) <- c("RR", "DET", "NRLINE", "L", "ENTR", "LAM", "TT")
+colnames(Simples) <- c("CRQA")
+Simples
 
 RP=Results$RP
 RP = matrix(as.numeric(RP), nrow = ncol(RP)) 
 cols = c("white","blue4")
 image(RP, xlab = "", ylab = "", col = cols)
-
+RP
 #Delay
 #Package, function Mutual(), tells muttual information. Tells how easy it is to predict the next datapoints. How strongly correlated two points in time. Trying to predict two points in the future, less correlation. So it should increase over time. We should try to find the optimal delay. Take the minium possible delay, really conservative and removes some data.
 
@@ -118,7 +157,7 @@ image(RP, xlab = "", ylab = "", col = cols)
 
 
 ```{r}
-#______________________________________ CLASS NOTES - IGNORE THIS _____________________________
+#______________________________________ CLASS NOTES ______________________________________________
 
 #List all files
 
@@ -162,6 +201,8 @@ image(RP, xlab = "", ylab = "", col = cols)
 #   mlpar = list(lgM =  35, radiusspan = 400, radiussample = 10, normalize = 0, rescale = 1,     mindiagline = 2, 
 #              minvertline = 2, tw = 0, whiteline = FALSE, recpt = FALSE, fnnpercent = 10, typeami = "maxlag")
 #   
+
+#What does the CRQA do, and what does it mean.
 # #RQUA, find Delay, Embed and Radius. Use optimize function optimizeparam()
 # #One school of thought: Unfold the timephase in the best phasespace.
 # #Other school of thought: You need to choose the same Delay, Embed and Radius for all timeseries. You want to maximise comparability of timeseries.
@@ -222,6 +263,7 @@ image(RP, xlab = "", ylab = "", col = cols)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
 
 ```{r}
+
 #Extract list of files
 files = list.files(path = "~/R/R - Datascripts/Assignment 3/Pitch",pattern="*.txt")
 #setWD
@@ -287,7 +329,7 @@ for (file in files){
 
 
 
-#Need to unlist it in order to make it a list!
+#Need to unlist
 delay = unlist(delay)
 embed = unlist(embed)
 radius = unlist(radius)
@@ -384,7 +426,6 @@ rqa_LAM = unlist(rqa_LAM)
 rqa_TT = unlist(rqa_TT)
 
 
-#Add to our lovely dataframe
 df_new = data.frame(df, rqa_RR, rqa_DET, rqa_NRLINE, rqa_maxL, rqa_L, rqa_ENTR, rqa_LAM, rqa_TT)
 
 
@@ -452,81 +493,79 @@ write.csv(df, file = "dataExtractSchizo.csv", row.names = F)
 #Load in newly made datafile for ease
 setwd("~/R/R - Datascripts/Assignment 3")
 df3 = read.delim('dataExtractSchizo.csv', sep = ',')
-
+3.2881
 
 #Use scale() for fixed effects
-df3$trial_SC<-scale(df3$trial)
-df3$study_SC <- scale(df3$study)
-str(df3)
 
 #RR
-pitchRR <- lmer(rqa_RR ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchRR <- lmer(rqa_RR ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
 summary(pitchRR)
-anova(pitchRR)
+
+
 
 #DET
-pitchDET <- lmer(rqa_DET ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchDET <- lmer(rqa_DET ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
 summary(pitchDET)
 
+
+
 #ENTR
-pitchENTR <- lmer(rqa_ENTR ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchENTR <- lmerTest(rqa_ENTR ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchENTR)
+
 
 #L
-pitchL <- lmer(rqa_L ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchL <- lmer(rqa_L ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchL)
+
+sjt.lmer(pitchL)
+
 
 #LAM
-pitchLAM <- lmer(rqa_LAM ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchLAM <- lmer(rqa_LAM ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchLAM)
+
 
 #maxL
-pitchmaxL <- lmer(rqa_maxL ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchmaxL <- lmer(rqa_maxL ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchmaxL)
+
+
 
 #NRLINE
-pitchNRLINE <- lmer(rqa_NRLINE ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchNRLINE <- lmer(rqa_NRLINE ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchNRLINE)
+
 
 #ENTR
-pitchENTR <- lmer(rqa_ENTR ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchENTR <- lmer(rqa_ENTR ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchENTR)
 
-#RP
-pitchRP <- lmer(rqa_RP ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
 
 #TT
-pitchTT <- lmer(rqa_TT ~ diagnosis + trial_SC + study_SC + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+pitchTT <- lmer(rqa_TT ~ diagnosis + scale(trial) + scale(study) + (1|study) + (1+diagnosis|participant), df3, REML = FALSE)
+summary(pitchTT)
 
+
+# load required packages
+library(sjPlot) # table functions
+library(sjmisc) # sample data
+
+
+sjt.lmer(pitchRR, pitchDET, pitchENTR,  show.std = FALSE, show.aic = TRUE, show.r2 = FALSE, emph.p = TRUE,  digits.p = 3,show.se = TRUE,digits.se = 3,show.re.var = TRUE, show.icc = FALSE,
+         show.dev = TRUE,  digits.est = 3, digits.summary = 3)
+        
+
+sjt.lmer(pitchL, pitchLAM, pitchmaxL,  show.std = FALSE, show.aic = TRUE, show.r2 = FALSE, emph.p = TRUE,  digits.p = 3,show.se = TRUE,digits.se = 3,show.re.var = TRUE, show.icc = FALSE,
+         show.dev = TRUE,  digits.est = 3, digits.summary = 3)
+
+
+sjt.lmer(pitchNRLINE, pitchTT,  show.std = FALSE, show.aic = TRUE, show.r2 = FALSE, emph.p = TRUE,  digits.p = 3,show.se = TRUE,digits.se = 3,show.re.var = TRUE, show.icc = FALSE,
+         show.dev = TRUE,  digits.est = 3, digits.summary = 3)
+        
 ```
 
 
-```{r}
-#______________________________________ CLASS NOTES - IGNORE THIS _____________________________
-#Can we take all the information into our model, find random structures to put into our model
-
-PRR(pitch)(and RR from loop) ~ D + Trial + #Each trial can also be systematic, we think it has an influence on our dependant variable, it has to be viewed as a fixed effect aswell as a random.
-                    
-                    (1|Study1) + #The range of pitch can be different for different studies. In one they removed outliers, in one they didn't. You control for difference in variablity for different studies.
-                    (1+Trial|ID) + #Each person has different slopes for pitch over trials. Ex. person gets tired and pitch lowers over trial.
-  
-#There are two particpants for each ID, so two 102, two 103. One is a control, so one Skitzo, one typ. In a study in copenhagen, you might have people with different dialect, different sexs. So particpants need controls very similar to them. 
-#Modelling this. The two particpants have the same data (more or less) we have to tell the model that these two are different people. The match of these could make your study more powerfull, so it's not ideal to rename them. 
-                    (1+D|ID) + #By putting the diagnosis over the matching ID, we take into account that the match of participants might vary. We allow random slopes and intercepts. If we don't, we assume the match don't vary by pairs, with the random effect we say that they could vary.  We seperate control and schitzo.
-
-#Matching two, we can expect that the control in order to match the schitzo might have other issues causing them to match - like very low education. Not really normal in DK. 
-                    (1+D+Trial|ID) #We can take the random effects for ID, trial and diagnosis and put it into one (). Trial controls for every participant over trials.
-
-#If these two don't converge, you would assume that Diagnosis and Trial aren't interacting and you'd say:
-                    (1+D|ID) + (1+Trial|ID)
-#The random effect of diagnosis, would mean that severity of schitzo would differ from study aswell. 
-
-#Interpret results
-#Ex.
-Beta = 5 # schitzo has a higher recurrance rate
-SE = 1.2 # 
-p-value = p < 0.005 #significantly higher
-
-#L (average length of lines in plot (recurrance line))= Look at group of snippets. Look at snippets over time, seeing changes in pitch. We look at line of plot, like 5. What does that mean. We know that each datapoint is 10 seconds. We know there's a delay of 3 and embed of 2. We want to identify the unit in our phasespace. We have 2 datapoints each 10 seconds, seperated by 3. We want to see how long these extend. We can see the patteren that recurs is between 1-8, 90ms. so x2-x5 (sep by 3), x3-x6, x5-x8.
-
-#Main point of this is to "build" a machine that can determine if someone is schitzo.
-
-
-```
 
 
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
