@@ -508,13 +508,8 @@ METHODS SECTION: how did you analyse the data?
 
 RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
 ```{r}
-#we used these methods
-#We compared models
-#X model was best, this is the performance of the model
 
-#Look at sensitivuty and specificity. If sensitivity is higher than specificity it's 
-
-#
+#I report this question throughout my report. 
 ```
 
 ### Bonus question 5
